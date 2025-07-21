@@ -1,10 +1,11 @@
 import google.generativeai as genai 
+import google.api_core.exceptions
 from .config import GOOGLE_API_KEY
 from .db_manager import get_full_schema_for_gemini 
 
 genai.configure(api_key = GOOGLE_API_KEY)
 
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('models/gemini-2.5-pro')
 
 def get_sql_from_natural_language(natural_language_query):
     if not GOOGLE_API_KEY:

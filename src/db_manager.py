@@ -31,7 +31,7 @@ def execute_query(query, fetch_results = True):
         cursor = connection.cursor()
         cursor.execute(query)
 
-        if fetch_results and query.strip().upper().statswith("SELECT"):
+        if fetch_results and query.strip().upper().startswith("SELECT"):
             columns = [col[0] for col in cursor.description]
             results = cursor.fetchall()
             dict_results = []
