@@ -1,11 +1,14 @@
-# config.py
+# File functions
+## config.py
 Has application configuration settings. Includes Gemini API, and MySQL db creds (Should be changed  while deployment)
 
-# db_manager.py
+## db_manager.py
 Database interaction layer of the application. Handles connectivity, query execution, retireval operation for MySQL
 
-# nl_to_sql.py
+## nl_to_sql.py
 Converts user nl queries to MySQL queries
+
+<br>
 
 # How to execute
 ## Clone the repo
