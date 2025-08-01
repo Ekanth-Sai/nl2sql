@@ -1,17 +1,43 @@
-import mysql.connector 
-from mysql.connector import Error 
-from .config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
-import streamlit as st
+import mysql.connector
+from mysql.connector import Error
+import os
+from dotenv import load_dotenv
 
-def _create_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
+# Load database credentials from .env
+load_dotenv()
+
+DB_HOST = os.getenv("MYSQL_HOST", "localhost")
+DB_USER = os.getenv("MYSQL_USER", "root")
+DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
+DB_NAME = os.getenv("MYSQL_DB", "your_database_name")
+
+def get_full_schema_for_gemini():
+    """
+    Returns the full database schema as a string formatted for LLM input.
+    Example:
+    Table: users
+    - id: INT
+    - name: VARCHAR(255)
+
+    Table: orders
+    - order_id: INT
+    - amount: FLOAT
+    """
+    tables = get_all_table_names()
+    schema = ""
+    for table in tables:
+        columns = get_table_schema(table)
+        schema += f"Table: {table}\n"
+        for col_name, col_type in columns:
+            schema += f"  - {col_name}: {col_type}\n"
+        schema += "\n"
+    return schema.strip()
+
 
 def get_connection():
+    """
+    Always create a fresh DB connection to avoid stale connections across Streamlit reruns.
+    """
     try:
         conn = mysql.connector.connect(
             host=DB_HOST,
@@ -22,30 +48,18 @@ def get_connection():
         if conn.is_connected():
             return conn
     except Error as e:
-        print(f"Error connecting to DB: {e}")
-        return None
+        print(f"❌ Error connecting to MySQL: {e}")
+    return None
 
-# def connect_db():
-#     try:
-#         connection = mysql.connector.connect(
-#             host = DB_HOST,
-#             user = DB_USER,
-#             password = DB_PASSWORD,
-#             database = DB_NAME
-#         )
-
-#         if connection.is_connected():
-#             print("Connected to db successfully")
-#             return connection
-        
-#     except Error as e:
-#         print(f"Error connecting to db: {e}")
-#         return None
-    
 def execute_query(query, fetch_results=True):
+    """
+    Execute any SQL query.
+    If it's a SELECT, returns list of dicts.
+    For INSERT/UPDATE/DELETE, commits the change.
+    """
     connection = get_connection()
     if connection is None:
-        print("Connection could not be established.")
+        print("❌ Could not establish connection")
         return False
 
     cursor = None
@@ -55,15 +69,14 @@ def execute_query(query, fetch_results=True):
 
         if fetch_results and query.strip().upper().startswith("SELECT"):
             columns = [col[0] for col in cursor.description]
-            results = cursor.fetchall()
-            dict_results = [dict(zip(columns, row)) for row in results]
-            return dict_results
+            rows = cursor.fetchall()
+            return [dict(zip(columns, row)) for row in rows]
         else:
             connection.commit()
             return True
 
     except Error as e:
-        print(f"Error executing query: {e}")
+        print(f"❌ Query execution failed: {e}")
         connection.rollback()
         return False
 
@@ -73,81 +86,48 @@ def execute_query(query, fetch_results=True):
         if connection and connection.is_connected():
             connection.close()
 
-
-def get_table_schema(table_name):
-    query = f"DESCRIBE {table_name};"
-    connection = None
-    cursor = None 
-    schema_str = ""
-
-    try:
-        connection = get_connection()
-
-        if connection is None:
-            return None 
-        
-        cursor = connection.cursor()
-        cursor.execute(query)
-        results = cursor.fetchall()
-
-        if results:
-            schema_str += f"Table: {table_name}\n"
-            schema_str += "Columns: \n"
-
-            for col in results:
-                columns_name = col[0]
-                column_type = col[1]
-                schema_str += f"-{columns_name} ({column_type})\n"
-
-            return schema_str
-        else:
-            print(f"Table '{table_name}' not found or no columns retrieved")
-            return None 
-    except Error as e:
-        print(f"Error fetching schema for table '{table_name}': {e}")
-        return None
-    finally:
-        if cursor:
-            cursor.close()
-
 def get_all_table_names():
-    query = "SHOW TABLES;"
-    connection = None
-    cursor = None 
-    table_names = []
+    """
+    Returns list of all table names in the current DB.
+    """
+    connection = get_connection()
+    if connection is None:
+        print("❌ Could not establish connection")
+        return []
 
+    cursor = None
     try:
-        connection = get_connection()
-        if connection is None:
-            return []
-        
         cursor = connection.cursor()
-        cursor.execute(query)
-        results = cursor.fetchall()
-
-        for row in results:
-            table_names.append(row[0])
-
-        return table_names
+        cursor.execute("SHOW TABLES")
+        return [row[0] for row in cursor.fetchall()]
     except Error as e:
-        print(f"Error fetching table names: {e}")
+        print(f"❌ Error fetching table names: {e}")
         return []
     finally:
         if cursor:
             cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
-def get_full_schema_for_gemini():
-    all_table_names = get_all_table_names()
+def get_table_schema(table_name):
+    """
+    Returns list of (column_name, data_type) for a given table.
+    """
+    connection = get_connection()
+    if connection is None:
+        print("❌ Could not establish connection")
+        return []
 
-    if not all_table_names:
-        print("Could not retrieve any table names. Please check database connection and permissions")
-        return ""
-
-    full_schema_string = "MySQL Database Schema: \n"
-
-    for table_name in all_table_names:
-        schema_info =  get_table_schema(table_name)
-        if schema_info:
-            full_schema_string += "\n" + schema_info
-    
-    return full_schema_string
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute(f"DESCRIBE {table_name}")
+        return [(row[0], row[1]) for row in cursor.fetchall()]
+    except Error as e:
+        print(f"❌ Error fetching schema for {table_name}: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
