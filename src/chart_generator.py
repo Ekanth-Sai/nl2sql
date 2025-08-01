@@ -226,7 +226,7 @@ def generate_chart_from_instruction(df, config):
         return True
 
     except Exception as e:
-        print(f"❌ Chart generation failed: {e}")
+        print(f"Chart generation failed: {e}")
         print(f"Debug info:")
         print(f"  Chart type: {chart_type}")
         print(f"  X column: {x}")
