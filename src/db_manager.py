@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_HOST = os.getenv("MYSQL_HOST", "localhost")
-DB_USER = os.getenv("MYSQL_USER", "root")
-DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
-DB_NAME = os.getenv("MYSQL_DB", "your_database_name")
+DB_USER = os.getenv("MYSQL_USER", "nl2sql_user")
+DB_PASSWORD = os.getenv("MYSQL_PASSWORD", "admin")
+DB_NAME = os.getenv("MYSQL_DB", "nl_to_sql_db")
 
 def get_full_schema_for_gemini():
     """
