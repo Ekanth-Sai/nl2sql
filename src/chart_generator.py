@@ -85,7 +85,7 @@ def generate_pie_chart_config(query_results, columns, title):
             'showInLegend': True
         }],
         'tooltip': {
-            'pointFormat': f'<b>{{point.name}}: {{point.y}}</b>'
+            'pointFormat': f'<b>{{point.name}}: {{point.y}}</b>' 
         },
         'credits': {
             'enabled': False

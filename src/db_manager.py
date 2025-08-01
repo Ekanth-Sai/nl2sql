@@ -1,62 +1,78 @@
 import mysql.connector 
 from mysql.connector import Error 
 from .config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
+import streamlit as st
 
-def connect_db():
+def _create_connection():
+    return mysql.connector.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
+    )
+
+def get_connection():
     try:
-        connection = mysql.connector.connect(
-            host = DB_HOST,
-            user = DB_USER,
-            password = DB_PASSWORD,
-            database = DB_NAME
+        conn = mysql.connector.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME
         )
-
-        if connection.is_connected():
-            print("Connected to db successfully")
-            return connection
-        
+        if conn.is_connected():
+            return conn
     except Error as e:
-        print(f"Error connecting to db: {e}")
+        print(f"Error connecting to DB: {e}")
         return None
-    
-def execute_query(query, fetch_results = True):
-    connection = None
-    cursor = None 
 
-    try:
-        connection = connect_db()
-        if connection is None:
-            return False
+# def connect_db():
+#     try:
+#         connection = mysql.connector.connect(
+#             host = DB_HOST,
+#             user = DB_USER,
+#             password = DB_PASSWORD,
+#             database = DB_NAME
+#         )
+
+#         if connection.is_connected():
+#             print("Connected to db successfully")
+#             return connection
         
+#     except Error as e:
+#         print(f"Error connecting to db: {e}")
+#         return None
+    
+def execute_query(query, fetch_results=True):
+    connection = get_connection()
+    if connection is None:
+        print("Connection could not be established.")
+        return False
+
+    cursor = None
+    try:
         cursor = connection.cursor()
         cursor.execute(query)
 
         if fetch_results and query.strip().upper().startswith("SELECT"):
             columns = [col[0] for col in cursor.description]
             results = cursor.fetchall()
-            dict_results = []
-
-            for row in results:
-                dict_results.append(dict(zip(columns, row)))
+            dict_results = [dict(zip(columns, row)) for row in results]
             return dict_results
         else:
             connection.commit()
-            print("Query executed succesfully")
             return True
-        
+
     except Error as e:
         print(f"Error executing query: {e}")
+        connection.rollback()
+        return False
 
-        if connection:
-            connection.rollback()
-        return False 
-    
     finally:
         if cursor:
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
-            print("Database connection closed")
+
 
 def get_table_schema(table_name):
     query = f"DESCRIBE {table_name};"
@@ -65,7 +81,7 @@ def get_table_schema(table_name):
     schema_str = ""
 
     try:
-        connection = connect_db()
+        connection = get_connection()
 
         if connection is None:
             return None 
@@ -93,8 +109,6 @@ def get_table_schema(table_name):
     finally:
         if cursor:
             cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
 
 def get_all_table_names():
     query = "SHOW TABLES;"
@@ -103,7 +117,7 @@ def get_all_table_names():
     table_names = []
 
     try:
-        connection = connect_db()
+        connection = get_connection()
         if connection is None:
             return []
         
@@ -121,8 +135,6 @@ def get_all_table_names():
     finally:
         if cursor:
             cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
 
 def get_full_schema_for_gemini():
     all_table_names = get_all_table_names()
